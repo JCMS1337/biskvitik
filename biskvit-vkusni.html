@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Расписание событий</title>
+    <link rel="stylesheet" href="biskvit.css">
+</head>
+<body>
+    <h1>Расписание событий</h1>
+    <div class="days-container">
+        <div class="day-block" id="ponedelnik">
+            <h2>Понедельник</h2>
+            <button class="add-event-btn" data-day="ponedelnik">Добавить событие</button>
+            <div class="events-list" id="events-ponedelnik"></div>
+        </div>
+        <div class="day-block" id="vtornik">
+            <h2>Вторник</h2>
+            <button class="add-event-btn" data-day="vtornik">Добавить событие</button>
+            <div class="events-list" id="events-vtornik"></div>
+        </div>
+        <div class="day-block" id="sreda">
+            <h2>Среда</h2>
+            <button class="add-event-btn" data-day="sreda">Добавить событие</button>
+            <div class="events-list" id="events-sreda"></div>
+        </div>
+        <div class="day-block" id="chetverg">
+            <h2>Четверг</h2>
+            <button class="add-event-btn" data-day="chetverg">Добавить событие</button>
+            <div class="events-list" id="events-chetverg"></div>
+        </div>
+        <div class="day-block" id="pyatnica">
+            <h2>Пятница</h2>
+            <button class="add-event-btn" data-day="pyatnica">Добавить событие</button>
+            <div class="events-list" id="events-pyatnica"></div>
+        </div>
+        <div class="day-block" id="subbota">
+            <h2>Суббота</h2>
+            <button class="add-event-btn" data-day="subbota">Добавить событие</button>
+            <div class="events-list" id="events-subbota"></div>
+        </div>
+        <div class="day-block" id="voskresenie">
+            <h2>Воскресенье</h2>
+            <button class="add-event-btn" data-day="voskresenie">Добавить событие</button>
+            <div class="events-list" id="events-voskresenie"></div>
+        </div>
+    </div>
+
+    <!-- Modal for adding events -->
+    <div id="event-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Добавить событие</h2>
+            <form id="event-form">
+                <label for="event-name">Название:</label>
+                <input type="text" id="event-name" required>
+
+                <label for="event-description">Описание:</label>
+                <textarea id="event-description" required></textarea>
+
+                <label for="event-time-from">Время от:</label>
+                <input type="time" id="event-time-from" required>
+
+                <label for="event-time-to">Время до:</label>
+                <input type="time" id="event-time-to" required>
+
+                <button type="submit">Добавить</button>
+            </form>
+        </div>
+    </div>
+
+    <script type="module">
+        import { addEventToDay, getAllEvents, removeEvent } from './bd.js';
+
+        const days = ['ponedelnik', 'vtornik', 'sreda', 'chetverg', 'pyatnica', 'subbota', 'voskresenie'];
+        let currentDay = '';
+
+        // Modal elements
+        const modal = document.getElementById('event-modal');
+        const closeBtn = document.querySelector('.close');
+        const form = document.getElementById('event-form');
+
+        // Add event listeners to buttons
+        document.querySelectorAll('.add-event-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                currentDay = e.target.dataset.day;
+                modal.style.display = 'block';
+            });
+        });
+
+        // Close modal
+        closeBtn.addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+
+        window.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+
+        // Handle form submission
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('event-name').value;
+            const description = document.getElementById('event-description').value;
+            const timeFrom = document.getElementById('event-time-from').value;
+            const timeTo = document.getElementById('event-time-to').value;
+
+            const eventData = {
+                name,
+                description,
+                timeFrom,
+                timeTo
+            };
+
+            try {
+                await addEventToDay(currentDay, eventData);
+                alert('Событие добавлено!');
+                form.reset();
+                modal.style.display = 'none';
+                loadEvents();
+            } catch (error) {
+                console.error('Error adding event:', error);
+                alert('Ошибка при добавлении события');
+            }
+        });
+
+        // Load and display events
+        async function loadEvents() {
+            try {
+                const allEvents = await getAllEvents();
+                days.forEach(day => {
+                    const eventsList = document.getElementById(`events-${day}`);
+                    eventsList.innerHTML = '';
+                    if (allEvents[day]) {
+                        Object.entries(allEvents[day]).forEach(([key, event]) => {
+                            const eventDiv = document.createElement('div');
+                            eventDiv.className = 'event';
+                            eventDiv.innerHTML = `
+                                <h3>${event.name}</h3>
+                                <p>${event.description}</p>
+                                <p>Время: ${event.timeFrom} - ${event.timeTo}</p>
+                                <button class="delete-btn" data-day="${day}" data-key="${key}">Удалить</button>
+                            `;
+                            eventsList.appendChild(eventDiv);
+                        });
+                    }
+                });
+
+                // Add event listeners to delete buttons
+                document.querySelectorAll('.delete-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        const day = e.target.dataset.day;
+                        const key = e.target.dataset.key;
+                        if (confirm('Вы уверены, что хотите удалить это событие?')) {
+                            try {
+                                await removeEvent(day, key);
+                                alert('Событие удалено!');
+                                loadEvents();
+                            } catch (error) {
+                                console.error('Error deleting event:', error);
+                                alert('Ошибка при удалении события');
+                            }
+                        }
+                    });
+                });
+            } catch (error) {
+                console.error('Error loading events:', error);
+            }
+        }
+
+        // Load events on page load
+        loadEvents();
+    </script>
+</body>
+</html>
